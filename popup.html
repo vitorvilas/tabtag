@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --btn-hover: #2e3d55;
+      --focus-color: #38bdf8;
+      --danger-bg: #ef444415;
+      --danger-border: #ef444430;
+      --danger-text: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      width: 230px;
+      padding: 14px;
+      background: var(--bg-color);
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header-logo {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #3b82f6, #ec4899);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-logo span {
+      font-size: 11px;
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .header-info h1 {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .header-info p {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .section-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin: 8px 0 6px 2px;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .color-btn {
+      font-size: 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 7px 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .color-btn:hover {
+      transform: translateY(-2px);
+      background: var(--btn-hover);
+      border-color: #64748b;
+    }
+
+    .color-btn:active {
+      transform: scale(0.95);
+    }
+
+    .clear-btn {
+      width: 100%;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--danger-text);
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+      margin-top: 4px;
+    }
+
+    .clear-btn:hover {
+      background: #ef444425;
+      border-color: #ef444460;
+    }
+
+    .color-btn:focus-visible,
+    .clear-btn:focus-visible,
+    .footer a:focus-visible {
+      outline: 2px solid var(--focus-color);
+      outline-offset: 2px;
+    }
+
+    .footer {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+      font-size: 9.5px;
+      color: #64748b;
+    }
+
+    .footer a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer a:hover {
+      color: var(--focus-color);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-logo" aria-hidden="true">
+      <span>TT</span>
+    </div>
+    <div class="header-info">
+      <h1>TabTag</h1>
+      <p>Organize por cores e status</p>
+    </div>
+  </header>
+
+  <main>
+    <section aria-labelledby="colors-label">
+      <div class="section-label" id="colors-label">Cores</div>
+      <div class="color-grid">
+        <button type="button" class="color-btn" data-emoji="🟥" title="Urgente / Crítico" aria-label="Vermelho: Urgente / Crítico">🟥</button>
+        <button type="button" class="color-btn" data-emoji="🟧" title="Pendente / Atenção" aria-label="Laranja: Pendente / Atenção">🟧</button>
+        <button type="button" class="color-btn" data-emoji="🟨" title="Rascunho / Ideia" aria-label="Amarelo: Rascunho / Ideia">🟨</button>
+        <button type="button" class="color-btn" data-emoji="🟩" title="Concluído / Finanças" aria-label="Verde: Concluído / Finanças">🟩</button>
+        <button type="button" class="color-btn" data-emoji="🟦" title="Trabalho / Código" aria-label="Azul: Trabalho / Código">🟦</button>
+        <button type="button" class="color-btn" data-emoji="🟪" title="Pessoal / Leitura" aria-label="Roxo: Pessoal / Leitura">🟪</button>
+        <button type="button" class="color-btn" data-emoji="🟫" title="Referência / Arquivo" aria-label="Marrom: Referência / Arquivo">🟫</button>
+        <button type="button" class="color-btn" data-emoji="⬛" title="Foco / Concluído" aria-label="Preto: Foco / Concluído">⬛</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="status-label">
+      <div class="section-label" id="status-label">Status &amp; Foco</div>
+      <div class="color-grid">
+        <button type="button" class="color-btn" data-emoji="📌" title="Fixado / Importante" aria-label="Fixado / Importante">📌</button>
+        <button type="button" class="color-btn" data-emoji="⏳" title="Aguardando / Em andamento" aria-label="Aguardando / Em andamento">⏳</button>
+        <button type="button" class="color-btn" data-emoji="🎯" title="Foco / Prioridade" aria-label="Foco / Prioridade">🎯</button>
+        <button type="button" class="color-btn" data-emoji="🚀" title="Ação / Em Produção" aria-label="Ação / Em Produção">🚀</button>
+      </div>
+    </section>
+
+    <button type="button" class="clear-btn" id="clear">
+      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+      Remover Marcador
+    </button>
+  </main>
+
+  <footer class="footer">
+    Desenvolvido por <a href="https://www.vitorvilasboas.com.br" target="_blank" rel="noopener noreferrer">Vitor Vilas Boas</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

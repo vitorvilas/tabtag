@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "TabTag",
+  "version": "1.1.1",
+  "minimum_chrome_version": "102",
+  "description": "Marcadores coloridos e ícones de status para abas, com persistência por URL.",
+  "author": "Vitor Vilas Boas",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TabTag",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}
