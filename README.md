@@ -4,11 +4,11 @@
   <img src="assets/banner.png" alt="TabTag" width="100%">
 </p>
 
-**Marcadores visuais para organizar abas do Chrome por contexto e status, com persistência por URL e armazenamento local.**
+**Marcadores visuais para organizar abas em navegadores baseados em Chromium, com persistência por URL e armazenamento local.**
 
 <p align="center">
   <a href="https://developer.chrome.com/docs/extensions/mv3/intro/">
-    <img src="https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-blue?logo=googlechrome&logoColor=white" alt="Chrome Manifest V3">
+    <img src="https://img.shields.io/badge/Manifest-Manifest%20V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3">
   </a>
   <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript">
     <img src="https://img.shields.io/badge/Language-Vanilla%20JS-yellow?logo=javascript&logoColor=white" alt="JavaScript">
@@ -42,6 +42,20 @@ O marcador fica associado à URL e salvo no próprio navegador.
 
 Isso permite fechar a aba e continuar com a organização depois. Ao abrir novamente a mesma URL, seja na mesma janela, em outra aba ou em uma nova janela, o TabTag restaura o marcador automaticamente.
 
+A persistência também atravessa sessões do navegador. Se o Chrome for fechado ou o computador for reiniciado, a associação continua armazenada e pode ser restaurada quando aquela URL voltar a ser aberta.
+
+## Compatibilidade
+
+O TabTag foi desenvolvido para navegadores baseados em Chromium.
+
+O projeto tem como alvo:
+
+- Google Chrome
+- Microsoft Edge
+- Chromium
+
+Outros navegadores baseados em Chromium, como Brave, Vivaldi e Opera, também podem funcionar com o TabTag, mas ainda não fazem parte da matriz de testes do projeto.
+
 ## Como funciona
 
 Ao selecionar uma tag, o TabTag salva a associação entre a URL atual e o marcador em `chrome.storage.local`.
@@ -56,17 +70,21 @@ https://exemplo.com/projeto/42 → 🟦
 
 A associação é feita pela URL. Endereços diferentes são tratados como registros diferentes.
 
-O Service Worker acompanha atualizações das abas com `chrome.tabs.onUpdated`. Quando uma página termina de carregar, muda de endereço ou altera o próprio título, o TabTag consulta o estado salvo e verifica se aquela URL possui uma tag.
+O TabTag acompanha carregamentos, mudanças de URL e alterações de título usando eventos nativos do navegador.
 
-Se o título já começa com o marcador correto, nada é feito.
+Também restaura os marcadores quando o navegador é iniciado novamente e quando abas são recuperadas de uma sessão anterior.
 
-Se a página tiver removido o marcador, ele é reaplicado.
+Quando encontra uma URL marcada, consulta o estado salvo e verifica se o título já contém o marcador correto.
+
+Se já estiver presente, nada é feito.
+
+Se tiver desaparecido, o TabTag o reaplica.
 
 ## Páginas que alteram o título depois do carregamento
 
 Aplicações como Gemini, YouTube, WhatsApp Web e Notion podem atualizar `document.title` depois que a interface já foi carregada.
 
-O TabTag acompanha essas alterações pelos eventos do próprio Chrome.
+O TabTag acompanha essas alterações pelos eventos do navegador:
 
 ```text
 Página altera o título
@@ -87,7 +105,9 @@ Título já começa com ele?
 encerra   reaplica
 ```
 
-Não é necessário manter um `MutationObserver` permanente ou polling contínuo dentro da página.
+Não é necessário manter um `MutationObserver` permanente ou polling (verificação contínua) dentro da página.
+
+Essa é uma decisão de arquitetura do projeto: o TabTag deve continuar pequeno, orientado a eventos e sem monitoramento permanente do DOM.
 
 ## Persistência por URL
 
@@ -97,13 +117,19 @@ Enquanto existir uma tag salva para determinado endereço, o TabTag pode restaur
 - o site altera o próprio título;
 - a aba é fechada e a mesma URL é aberta novamente;
 - a URL é aberta em outra aba;
-- a URL é aberta em uma nova janela.
+- a URL é aberta em uma nova janela;
+- o navegador é fechado e aberto novamente;
+- o computador é reiniciado e a URL volta a ser aberta.
+
+A persistência permanente fica em `chrome.storage.local`.
+
+O `chrome.storage.session` é usado apenas para estado temporário das abas durante a sessão atual.
 
 Ao remover o marcador pelo popup, a associação daquela URL também é apagada.
 
-## Barra de endereços e histórico do Chrome
+## Barra de endereços e histórico
 
-Como o TabTag altera o título real da página, o marcador também pode aparecer em locais onde o Chrome reutiliza esse título, como sugestões da barra de endereços e resultados do histórico.
+Como o TabTag altera o título real da página, o marcador também pode aparecer em locais onde o navegador reutiliza esse título, como sugestões da barra de endereços e resultados do histórico.
 
 Exemplo:
 
@@ -115,7 +141,7 @@ Exemplo:
 
 Isso permite reconhecer visualmente algumas páginas marcadas antes mesmo de reabri-las.
 
-O comportamento exato das sugestões é controlado pelo próprio Chrome.
+O comportamento exato dessas sugestões é controlado pelo próprio navegador.
 
 ## Marcadores disponíveis
 
@@ -167,6 +193,7 @@ Páginas internas do navegador, como:
 ```text
 chrome://extensions
 chrome://settings
+edge://extensions
 ```
 
 não recebem marcadores.
@@ -180,12 +207,12 @@ Não há framework de frontend, backend, banco de dados remoto ou etapa de build
 ```text
 tabtag/
 ├── assets/
-│   └── banner.png
+├── docs/
 ├── icons/
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
+├── .gitignore
 ├── background.js
+├── CHANGELOG.md
+├── LICENSE
 ├── manifest.json
 ├── popup.html
 ├── popup.js
@@ -209,19 +236,45 @@ Cuida da interação com o popup:
 
 ### `background.js`
 
-É o Service Worker responsável por acompanhar carregamentos, mudanças de URL e alterações de título.
+É o Service Worker (trabalhador de serviço) responsável pela restauração dos marcadores.
+
+Ele acompanha:
+
+- carregamentos e alterações de título com `chrome.tabs.onUpdated`;
+- novas abas com `chrome.tabs.onCreated`;
+- inicialização do navegador com `chrome.runtime.onStartup`;
+- instalação ou atualização da extensão com `chrome.runtime.onInstalled`.
 
 Quando encontra uma URL marcada, verifica o título atual e só executa a restauração quando necessário.
 
 ### `manifest.json`
 
-Define a extensão em Manifest V3, suas permissões e os arquivos usados pelo Chrome.
+Define a extensão em Manifest V3, suas permissões e os arquivos usados pelo navegador.
+
+## Princípios do projeto
+
+O TabTag nasceu para ser simples e deve continuar assim.
+
+A extensão usa APIs nativas do navegador e evita manter lógica executando continuamente dentro das páginas.
+
+Alguns princípios orientam o projeto:
+
+- usar eventos nativos do navegador;
+- evitar observação contínua do DOM;
+- manter armazenamento e funcionamento locais;
+- evitar dependências sem necessidade;
+- usar o menor conjunto possível de permissões;
+- preservar uma base de código pequena e fácil de entender.
+
+O TabTag não pretende se tornar um gerenciador completo de abas.
+
+Funcionalidades que exijam observação permanente do DOM, acompanhamento de componentes internos dos sites ou infraestrutura desproporcional ao objetivo da extensão ficam fora do escopo do projeto.
 
 ## Instalação
 
 O TabTag ainda não é distribuído pela Chrome Web Store.
 
-A forma mais simples de instalar é baixar o ZIP publicado em **Releases**, descompactar e carregar a pasta pelo Chrome.
+A forma mais simples de instalar é baixar o ZIP publicado em **Releases**, descompactar e carregar a pasta como extensão local.
 
 ### Baixando a versão pronta
 
@@ -230,14 +283,14 @@ A forma mais simples de instalar é baixar o ZIP publicado em **Releases**, desc
 3. Em **Assets**, baixe:
 
 ```text
-tabtag-v1.1.1.zip
+tabtag-v1.1.2.zip
 ```
 
-4. Descompacte o arquivo em uma pasta do computador.
+4. Descompacte o arquivo em uma pasta permanente no computador.
 
-> Não carregue o arquivo `.zip` diretamente no Chrome. A extensão precisa estar descompactada.
+> Não carregue o arquivo `.zip` diretamente. O navegador precisa da pasta já descompactada.
 
-### Carregando no Chrome
+### Google Chrome e Chromium
 
 Abra:
 
@@ -245,7 +298,7 @@ Abra:
 chrome://extensions
 ```
 
-Ative **Modo do desenvolvedor** no canto superior direito.
+Ative **Modo do desenvolvedor**.
 
 Depois clique em:
 
@@ -259,30 +312,55 @@ Selecione a pasta do TabTag que contém:
 manifest.json
 ```
 
-A extensão aparecerá na lista do Chrome.
+### Microsoft Edge
 
-Se quiser acesso rápido, fixe o TabTag na barra de ferramentas.
+Abra:
+
+```text
+edge://extensions
+```
+
+Ative **Modo do desenvolvedor**.
+
+Depois clique em:
+
+```text
+Carregar descompactado
+```
+
+Selecione a pasta do TabTag que contém o `manifest.json`.
 
 ### Instalando pelo código-fonte
 
-Quem quiser trabalhar diretamente com o código também pode clonar o repositório:
+Quem quiser trabalhar diretamente com o código pode clonar o repositório:
 
 ```bash
-git clone URL_DO_REPOSITORIO
+git clone https://github.com/vitorvilas/tabtag.git
 cd tabtag
 ```
 
-Depois siga o mesmo processo em `chrome://extensions`:
+Depois carregue a própria pasta clonada como extensão descompactada.
 
-1. ative **Modo do desenvolvedor**;
-2. clique em **Carregar sem compactação**;
-3. selecione a pasta raiz do projeto.
+Não é necessário copiar os arquivos para outra pasta. Arquivos como `README.md`, `CHANGELOG.md`, `LICENSE` e o conteúdo de `docs/` não interferem no funcionamento da extensão.
 
-Durante o desenvolvimento, depois de alterar os arquivos locais, use o botão de recarregar da extensão em `chrome://extensions`.
+Durante o desenvolvimento, depois de alterar os arquivos locais, use o botão de recarregar disponível na página de extensões do navegador.
+
+## Atualização manual
+
+Enquanto o TabTag for distribuído por ZIP, atualizações também são feitas manualmente.
+
+Para atualizar:
+
+1. baixe a nova versão em **Releases**;
+2. substitua a pasta local pela nova versão;
+3. abra a página de extensões;
+4. clique em **Recarregar** no TabTag.
+
+As associações salvas em `chrome.storage.local` pertencem à instalação da extensão e não aos arquivos da pasta do projeto.
 
 ## Privacidade e permissões
 
-Os marcadores ficam armazenados localmente pelo Chrome.
+Os marcadores ficam armazenados localmente pelo navegador.
 
 O TabTag não possui backend para armazenar tags e não implementa telemetria.
 
@@ -291,7 +369,7 @@ A interface também não depende de bibliotecas ou scripts externos.
 | Permissão | Uso |
 | --- | --- |
 | `scripting` | Executa o código que altera `document.title` |
-| `storage` | Armazena a associação entre URL e marcador |
+| `storage` | Armazena os marcadores e o estado temporário da sessão |
 | `http://*/*` | Permite restaurar tags em páginas HTTP |
 | `https://*/*` | Permite restaurar tags em páginas HTTPS |
 
@@ -317,10 +395,14 @@ Parâmetros e outras alterações que produzam URLs diferentes também podem ger
 
 Cada URL mantém um marcador do TabTag por vez. Selecionar outra cor ou status substitui o anterior.
 
+## Histórico de versões
+
+Consulte [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações de cada versão.
+
 ## Licença
 
 Distribuído sob a licença **MIT**. Consulte [`LICENSE`](LICENSE) para mais informações.
 
-<p align="center">
-  Desenvolvido por <b>Vitor Vilas Boas</b>
-</p>
+## Autor
+
+Desenvolvido por **Vitor Vilas Boas**.
