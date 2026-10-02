@@ -332,7 +332,7 @@ A forma mais simples de instalar é baixar o ZIP publicado em **Releases**, desc
 3. Em **Assets**, baixe:
 
 ```text
-tabtag-v1.2.3.zip
+tabtag-v1.2.4.zip
 ```
 
 4. Descompacte o arquivo em uma pasta permanente no computador.

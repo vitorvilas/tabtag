@@ -2,6 +2,15 @@
 
 Todas as alterações relevantes do TabTag serão registradas neste arquivo.
 
+## [1.2.4] - 02-10-2026
+### Corrigido
+
+- Evita a duplicação do marcador quando sites recompõem o título durante a navegação interna.
+- Normaliza contadores de notificação repetidos no prefixo do título quando a duplicação ocorre junto ao marcador do TabTag.
+- Mantém emojis legítimos do título fora do prefixo controlado pelo TabTag.
+
+---
+
 ## [1.2.3] - 02-10-2026
 
 ### Corrigido

@@ -300,20 +300,51 @@ async function applyMarkerToTitle(tabId, marker, previousMarker) {
   await chrome.scripting.executeScript({
     target: { tabId },
     func: (savedMarker, oldMarker) => {
-      const savedPrefix = `${savedMarker} `;
-      let title = document.title;
+      const originalTitle = document.title;
+      const markerTokens = [savedMarker, oldMarker].filter(Boolean);
+      const notificationCounters = [];
+      let title = originalTitle.trimStart();
+      let foundTabTagMarker = false;
 
-      if (title.startsWith(savedPrefix)) return;
+      while (title) {
+        let matchedMarker = false;
 
-      if (oldMarker) {
-        const oldPrefix = `${oldMarker} `;
+        for (const markerToken of markerTokens) {
+          const prefix = `${markerToken} `;
 
-        while (title.startsWith(oldPrefix)) {
-          title = title.slice(oldPrefix.length);
+          if (title.startsWith(prefix)) {
+            title = title.slice(prefix.length).trimStart();
+            foundTabTagMarker = true;
+            matchedMarker = true;
+            break;
+          }
         }
+
+        if (matchedMarker) continue;
+
+        const counterMatch = title.match(/^\((\d+\+?)\)\s+/);
+
+        if (counterMatch) {
+          notificationCounters.push(counterMatch[0].trim());
+          title = title.slice(counterMatch[0].length).trimStart();
+          continue;
+        }
+
+        break;
       }
 
-      document.title = `${savedPrefix}${title}`;
+      const counters = foundTabTagMarker
+        ? [...new Set(notificationCounters)]
+        : notificationCounters;
+
+      const prefixParts = [savedMarker, ...counters];
+      const normalizedTitle = title
+        ? `${prefixParts.join(' ')} ${title}`
+        : prefixParts.join(' ');
+
+      if (normalizedTitle !== originalTitle) {
+        document.title = normalizedTitle;
+      }
     },
     args: [marker, previousMarker]
   });
@@ -323,15 +354,41 @@ async function removeMarkerFromTitle(tabId, marker) {
   await chrome.scripting.executeScript({
     target: { tabId },
     func: (savedMarker) => {
-      const prefix = `${savedMarker} `;
-      let title = document.title;
+      const originalTitle = document.title;
+      const notificationCounters = [];
+      let title = originalTitle.trimStart();
+      let foundTabTagMarker = false;
 
-      while (title.startsWith(prefix)) {
-        title = title.slice(prefix.length);
+      while (title) {
+        const markerPrefix = `${savedMarker} `;
+
+        if (title.startsWith(markerPrefix)) {
+          title = title.slice(markerPrefix.length).trimStart();
+          foundTabTagMarker = true;
+          continue;
+        }
+
+        const counterMatch = title.match(/^\((\d+\+?)\)\s+/);
+
+        if (counterMatch) {
+          notificationCounters.push(counterMatch[0].trim());
+          title = title.slice(counterMatch[0].length).trimStart();
+          continue;
+        }
+
+        break;
       }
 
-      if (title !== document.title) {
-        document.title = title;
+      if (!foundTabTagMarker) return;
+
+      const counters = [...new Set(notificationCounters)];
+      const prefix = counters.join(' ');
+      const normalizedTitle = prefix && title
+        ? `${prefix} ${title}`
+        : prefix || title;
+
+      if (normalizedTitle !== originalTitle) {
+        document.title = normalizedTitle;
       }
     },
     args: [marker]
