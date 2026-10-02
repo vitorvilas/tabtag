@@ -4,7 +4,7 @@
   <img src="assets/banner.png" alt="TabTag" width="100%">
 </p>
 
-**Marcadores visuais para organizar abas em navegadores baseados em Chromium, com persistência por URL e armazenamento local.**
+**Marcadores visuais para organizar abas em navegadores baseados em Chromium, com persistência por URL ou domínio e armazenamento local.**
 
 <p align="center">
   <a href="https://developer.chrome.com/docs/extensions/mv3/intro/">
@@ -38,11 +38,19 @@ Você escolhe uma cor ou um status pelo popup da extensão:
 🎯 Roadmap | Sprint atual
 ```
 
-O marcador fica associado à URL e salvo no próprio navegador.
+O marcador pode ficar associado à URL atual ou ao domínio inteiro.
 
-Isso permite fechar a aba e continuar com a organização depois. Ao abrir novamente a mesma URL, seja na mesma janela, em outra aba ou em uma nova janela, o TabTag restaura o marcador automaticamente.
+Com o modo por URL, cada endereço mantém seu próprio marcador. Com **Aplicar a todo o domínio** ativado, páginas do mesmo domínio compartilham a mesma tag.
 
-A persistência também atravessa sessões do navegador. Se o Chrome for fechado ou o computador for reiniciado, a associação continua armazenada e pode ser restaurada quando aquela URL voltar a ser aberta.
+Exemplo:
+
+```text
+www.linkedin.com/feed/                 🟦
+www.linkedin.com/in/vitor-vilas-boas/ 🟦
+www.linkedin.com/jobs/                 🟦
+```
+
+A persistência fica no próprio navegador e atravessa recarregamentos, fechamento de abas e novas sessões.
 
 ## Compatibilidade
 
@@ -58,74 +66,123 @@ Outros navegadores baseados em Chromium, como Brave, Vivaldi e Opera, também po
 
 ## Como funciona
 
-Ao selecionar uma tag, o TabTag salva a associação entre a URL atual e o marcador em `chrome.storage.local`.
+Ao selecionar uma tag, o TabTag salva o marcador em `chrome.storage.local`.
 
-Em seguida, o marcador é aplicado como prefixo de `document.title`.
+O escopo depende da chave seletora do popup. A escolha também fica salva em `chrome.storage.local`, então o estado da chave é mantido ao navegar entre páginas do mesmo domínio.
 
-Conceitualmente:
+### Por URL
+
+Com **Aplicar a todo o domínio** desligado:
 
 ```text
-https://exemplo.com/projeto/42 → 🟦
+https://www.linkedin.com/feed/ → 🟦
 ```
 
-A associação é feita pela URL. Endereços diferentes são tratados como registros diferentes.
+A tag vale somente para essa URL.
+
+### Por domínio
+
+Com **Aplicar a todo o domínio** ligado:
+
+```text
+www.linkedin.com → 🟦
+```
+
+A tag passa a valer para as páginas desse domínio.
+
+O domínio usado pelo TabTag é o `hostname` exato. Por isso, por exemplo, `www.exemplo.com` e `app.exemplo.com` são tratados separadamente.
+
+## Escopo por URL ou domínio
+
+Os dois modos são exclusivos.
+
+Quando **Aplicar a todo o domínio** é ativado, a mudança passa a valer imediatamente. Se a página atual já tiver um marcador, ele é promovido para o domínio e passa a ser usado nas outras URLs daquele `hostname`. O TabTag também remove marcadores específicos já armazenados para esse mesmo domínio.
+
+Exemplo:
+
+```text
+www.linkedin.com → 🟦
+```
+
+Então páginas como estas usam a mesma tag:
+
+```text
+/feed/
+/in/vitor-vilas-boas/
+/jobs/
+```
+
+Ao desligar a chave, a mudança também é imediata. Se existir um marcador de domínio, ele é mantido apenas na URL atual e a regra geral do domínio é removida.
+
+## Restauração automática
+
+O marcador é aplicado como prefixo de `document.title`.
 
 O TabTag acompanha carregamentos, mudanças de URL e alterações de título usando eventos nativos do navegador.
 
 Também restaura os marcadores quando o navegador é iniciado novamente e quando abas são recuperadas de uma sessão anterior.
 
-Quando encontra uma URL marcada, consulta o estado salvo e verifica se o título já contém o marcador correto.
-
-Se já estiver presente, nada é feito.
-
-Se tiver desaparecido, o TabTag o reaplica.
+Se o título já contém a tag correta, nada é executado. Se a página remover o marcador, o TabTag o reaplica.
 
 ## Páginas que alteram o título depois do carregamento
 
-Aplicações como Gemini, YouTube, WhatsApp Web e Notion podem atualizar `document.title` depois que a interface já foi carregada.
+Aplicações como Gemini, YouTube, WhatsApp Web, LinkedIn e Notion podem atualizar `document.title` depois que a interface já foi carregada.
 
-O TabTag acompanha essas alterações pelos eventos do navegador:
+O TabTag usa dois eventos do navegador para esse cenário:
+
+- `chrome.tabs.onUpdated` para carregamentos e alterações de título;
+- `chrome.webNavigation.onHistoryStateUpdated` para navegação interna feita pela History API, comum em aplicações SPA.
 
 ```text
-Página altera o título
-        │
-        ▼
-chrome.tabs.onUpdated
-        │
-        ▼
-Existe marcador para a URL?
-        │
-        ▼
+Página altera o título ou muda de rota
+               │
+               ▼
+ tabs.onUpdated / webNavigation
+               │
+               ▼
+Existe marcador para a URL ou domínio?
+               │
+               ▼
 Título já começa com ele?
-        │
-   ┌────┴────┐
-   │         │
-  sim       não
-   │         │
-encerra   reaplica
+               │
+          ┌────┴────┐
+          │         │
+         sim       não
+          │         │
+       encerra   reaplica
 ```
 
-Não é necessário manter um `MutationObserver` permanente ou polling (verificação contínua) dentro da página.
+Após uma mudança de rota pela History API, o TabTag faz uma única revalidação curta para cobrir páginas que atualizam o título logo depois da navegação. Isso é acionado pelo evento de navegação e não mantém observação contínua da página.
 
-Essa é uma decisão de arquitetura do projeto: o TabTag deve continuar pequeno, orientado a eventos e sem monitoramento permanente do DOM.
+Não é necessário manter `MutationObserver` permanente nem polling (verificação contínua) dentro da página.
 
-## Persistência por URL
+Essa é uma decisão de arquitetura do projeto. O TabTag deve continuar pequeno, orientado a eventos e sem monitoramento contínuo do DOM.
 
-Enquanto existir uma tag salva para determinado endereço, o TabTag pode restaurá-la quando:
+## Persistência
+
+Enquanto existir um marcador salvo, o TabTag pode restaurá-lo quando:
 
 - a página é recarregada;
 - o site altera o próprio título;
-- a aba é fechada e a mesma URL é aberta novamente;
-- a URL é aberta em outra aba;
-- a URL é aberta em uma nova janela;
+- a navegação muda de URL dentro de uma aplicação SPA;
+- a aba é fechada e aberta novamente;
+- a URL é aberta em outra aba ou janela;
+- outra página do domínio é aberta, quando o modo por domínio está ativo;
 - o navegador é fechado e aberto novamente;
-- o computador é reiniciado e a URL volta a ser aberta.
+- o computador é reiniciado e a página volta a ser aberta.
 
-A persistência permanente fica em `chrome.storage.local`.
+Os marcadores e a escolha de escopo ficam em `chrome.storage.local`.
 
-O `chrome.storage.session` é usado apenas para estado temporário das abas durante a sessão atual.
+O `chrome.storage.session` é usado apenas para acompanhar o estado temporário das abas durante a sessão atual.
 
-Ao remover o marcador pelo popup, a associação daquela URL também é apagada.
+## Remoção de marcadores
+
+O botão **Remover Marcador** respeita o escopo selecionado no popup:
+
+- chave desligada: remove o marcador específico da URL atual;
+- chave ligada: remove o marcador do domínio atual.
+
+Emojis que façam parte do título original da página não são removidos apenas por também existirem na paleta do TabTag.
 
 ## Barra de endereços e histórico
 
@@ -138,8 +195,6 @@ Exemplo:
 🟦 GitHub - Projeto
 🟥 Bug crítico - Aplicação
 ```
-
-Isso permite reconhecer visualmente algumas páginas marcadas antes mesmo de reabri-las.
 
 O comportamento exato dessas sugestões é controlado pelo próprio navegador.
 
@@ -158,8 +213,6 @@ O comportamento exato dessas sugestões é controlado pelo próprio navegador.
 | 🟫 | Referência / Arquivo |
 | ⬛ | Foco / Concluído |
 
-Os significados são uma convenção visual. A extensão não associa comportamentos diferentes a cada cor.
-
 ### Status e foco
 
 | Marcador | Uso sugerido |
@@ -169,15 +222,7 @@ Os significados são uma convenção visual. A extensão não associa comportame
 | 🎯 | Foco / Prioridade |
 | 🚀 | Ação / Em produção |
 
-Para o TabTag, cores e status funcionam da mesma forma: são marcadores associados à URL.
-
-## Troca e remoção
-
-Ao escolher outra tag, o TabTag substitui o marcador que ele próprio adicionou ao início do título.
-
-Emojis que façam parte do conteúdo original do título não são removidos apenas por também existirem na paleta da extensão.
-
-O botão **Remover Marcador** apaga a associação salva para a URL atual e restaura o título sem a tag do TabTag.
+Os significados são uma convenção visual. Para o TabTag, todos funcionam como marcadores de título.
 
 ## URLs suportadas
 
@@ -221,18 +266,17 @@ tabtag/
 
 ### `popup.html`
 
-Contém a interface da extensão, com oito opções de cor, quatro marcadores de status e o botão para remover a tag atual.
+Contém a interface da extensão, com oito cores, quatro marcadores de status, a chave para alternar entre URL e domínio e o botão de remoção.
 
 ### `popup.js`
 
 Cuida da interação com o popup:
 
 - identifica a aba ativa;
-- valida a URL;
-- salva o marcador;
-- altera o título da página;
-- troca um marcador existente;
-- remove a tag e o registro local.
+- escolhe a chave de armazenamento por URL ou domínio;
+- aplica, troca e remove marcadores;
+- aplica o escopo escolhido e evita conflito entre regras por URL e por domínio;
+- atualiza o estado temporário da aba.
 
 ### `background.js`
 
@@ -240,24 +284,29 @@ Cuida da interação com o popup:
 
 Ele acompanha:
 
-- carregamentos e alterações de título com `chrome.tabs.onUpdated`;
+- carregamentos, mudanças de URL e alterações de título com `chrome.tabs.onUpdated`;
+- mudanças de rota pela History API com `chrome.webNavigation.onHistoryStateUpdated`;
 - novas abas com `chrome.tabs.onCreated`;
 - inicialização do navegador com `chrome.runtime.onStartup`;
 - instalação ou atualização da extensão com `chrome.runtime.onInstalled`.
 
-Quando encontra uma URL marcada, verifica o título atual e só executa a restauração quando necessário.
+Na resolução do marcador, uma regra de domínio tem prioridade e vale para todas as URLs daquele `hostname`. Se não existir regra de domínio, o TabTag procura um marcador para a URL exata.
 
-### `manifest.json`
+### Armazenamento
 
-Define a extensão em Manifest V3, suas permissões e os arquivos usados pelo navegador.
+Marcadores específicos continuam usando a URL completa como chave, mantendo compatibilidade com versões anteriores do TabTag.
+
+Marcadores de domínio usam chaves internas no formato:
+
+```text
+tabtag:domain:www.exemplo.com
+```
 
 ## Princípios do projeto
 
 O TabTag nasceu para ser simples e deve continuar assim.
 
 A extensão usa APIs nativas do navegador e evita manter lógica executando continuamente dentro das páginas.
-
-Alguns princípios orientam o projeto:
 
 - usar eventos nativos do navegador;
 - evitar observação contínua do DOM;
@@ -283,7 +332,7 @@ A forma mais simples de instalar é baixar o ZIP publicado em **Releases**, desc
 3. Em **Assets**, baixe:
 
 ```text
-tabtag-v1.1.2.zip
+tabtag-v1.2.3.zip
 ```
 
 4. Descompacte o arquivo em uma pasta permanente no computador.
@@ -298,19 +347,9 @@ Abra:
 chrome://extensions
 ```
 
-Ative **Modo do desenvolvedor**.
+Ative **Modo do desenvolvedor** e clique em **Carregar sem compactação**.
 
-Depois clique em:
-
-```text
-Carregar sem compactação
-```
-
-Selecione a pasta do TabTag que contém:
-
-```text
-manifest.json
-```
+Selecione a pasta que contém `manifest.json`.
 
 ### Microsoft Edge
 
@@ -320,19 +359,11 @@ Abra:
 edge://extensions
 ```
 
-Ative **Modo do desenvolvedor**.
+Ative **Modo do desenvolvedor** e clique em **Carregar descompactado**.
 
-Depois clique em:
-
-```text
-Carregar descompactado
-```
-
-Selecione a pasta do TabTag que contém o `manifest.json`.
+Selecione a pasta que contém `manifest.json`.
 
 ### Instalando pelo código-fonte
-
-Quem quiser trabalhar diretamente com o código pode clonar o repositório:
 
 ```bash
 git clone https://github.com/vitorvilas/tabtag.git
@@ -341,22 +372,18 @@ cd tabtag
 
 Depois carregue a própria pasta clonada como extensão descompactada.
 
-Não é necessário copiar os arquivos para outra pasta. Arquivos como `README.md`, `CHANGELOG.md`, `LICENSE` e o conteúdo de `docs/` não interferem no funcionamento da extensão.
-
-Durante o desenvolvimento, depois de alterar os arquivos locais, use o botão de recarregar disponível na página de extensões do navegador.
+Arquivos como `README.md`, `CHANGELOG.md`, `LICENSE` e o conteúdo de `docs/` não interferem no funcionamento da extensão.
 
 ## Atualização manual
 
 Enquanto o TabTag for distribuído por ZIP, atualizações também são feitas manualmente.
-
-Para atualizar:
 
 1. baixe a nova versão em **Releases**;
 2. substitua a pasta local pela nova versão;
 3. abra a página de extensões;
 4. clique em **Recarregar** no TabTag.
 
-As associações salvas em `chrome.storage.local` pertencem à instalação da extensão e não aos arquivos da pasta do projeto.
+Os marcadores salvos em `chrome.storage.local` pertencem à instalação da extensão e não aos arquivos da pasta do projeto.
 
 ## Privacidade e permissões
 
@@ -375,25 +402,16 @@ A interface também não depende de bibliotecas ou scripts externos.
 
 ## Limites atuais
 
-A persistência é baseada na URL.
+No modo por URL, qualquer mudança que produza um endereço diferente pode gerar outra entrada.
 
-Por exemplo:
-
-```text
-https://exemplo.com/projeto/1
-```
-
-e:
+No modo por domínio, o TabTag usa o `hostname` exato. Subdomínios são independentes:
 
 ```text
-https://exemplo.com/projeto/2
+www.exemplo.com
+app.exemplo.com
 ```
 
-são páginas diferentes para o TabTag.
-
-Parâmetros e outras alterações que produzam URLs diferentes também podem gerar registros separados.
-
-Cada URL mantém um marcador do TabTag por vez. Selecionar outra cor ou status substitui o anterior.
+Os modos por URL e por domínio são exclusivos. Ao criar uma regra para o domínio, o TabTag remove regras específicas daquele mesmo `hostname`. Ao voltar para o modo por URL, a regra de domínio é removida.
 
 ## Histórico de versões
 
